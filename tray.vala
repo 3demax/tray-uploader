@@ -9,8 +9,11 @@ public class Main {
     private StatusIcon trayicon;
     private Menu menuSystem;
     public string image_path;
+    private Clipboard clipboard;
+    private int owner_change_count;
 
     public AppStatusIcon(string image_path) {
+      this.image_path = image_path;
       /* Create tray icon */
       trayicon = new StatusIcon.from_stock(Stock.GO_UP);
       trayicon.set_tooltip_text (image_path);
@@ -22,7 +25,8 @@ public class Main {
 
       create_menuSystem();
       trayicon.popup_menu.connect(menuSystem_popup);
-      this.image_path = image_path;
+      
+//      imgur_upload();
     }
 
     /* Create menu for right button */
@@ -30,12 +34,14 @@ public class Main {
       menuSystem = new Menu();
       
       var show = new ImageMenuItem.from_stock(Stock.EXECUTE, null);
+      show.set_label("Show image");
       show.activate.connect(() => {
-//        execute("xdg-open " + image_path);
+        execute("xdg-open " + this.image_path);
       });
       menuSystem.append(show);
       
       var upload = new ImageMenuItem.from_stock(Stock.GO_UP, null);
+      upload.set_label("Upload to imgur.com");
       upload.activate.connect(imgur_upload);
       menuSystem.append(upload);
       
@@ -46,6 +52,11 @@ public class Main {
       menuSystem.show_all();
     }
 
+//    public void img_upload () {
+//      imgur_upload();
+//      message ("Quitting...");
+//      Gtk.main_quit();
+//    }
 
     public void imgur_upload ()
     {
@@ -85,15 +96,28 @@ public class Main {
         string link = root_object.get_object_member ("upload")
                                     .get_object_member ("links")
                                        .get_string_member ("original");
-                                       
-        var display = this.get_display ();
-        var clipboard = Clipboard.get_for_display (display, Gdk.SELECTION_CLIPBOARD);
-        clipboard.set_text (link, -1);
+//        string link = "http://imgur.com/DEBUG";
+        message("Link is " + link);
         
         Notify.init ("Screenshot");
 		    var upload = new Notification("Screenshot", this.image_path+"\nuploaded to imgur\n"+link, "dialog-information");
 		    upload.show ();
 		    Notify.uninit ();
+        this.clipboard = Clipboard.get(Gdk.SELECTION_CLIPBOARD);
+        
+        this.owner_change_count = 0;
+        clipboard.owner_change.connect((clipboard, event) => {
+          message("owner changed " + this.owner_change_count.to_string());
+          this.owner_change_count ++;
+          if (this.owner_change_count > 1) {
+            Gtk.main_quit();
+          }
+        }); 
+        
+        message("clipbd acquired");
+        clipboard.set_text (link, -1);
+        clipboard.store();
+        
       }
       catch (GLib.Error e) {
 //        warning (_("Unable to upload file: %s").printf(e.message));
